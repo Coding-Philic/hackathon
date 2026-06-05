@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+import time
 
 try:
     from backend.database import engine, Base, SessionLocal
@@ -26,6 +27,14 @@ app = FastAPI(
     description="Backend simulating hospital IT infrastructure and SRE Agent workflow",
     version="1.0.0"
 )
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    started = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (time.perf_counter() - started) * 1000
+    logger.info("API %s %s -> %s in %.1fms", request.method, request.url.path, response.status_code, duration_ms)
+    return response
 
 # Enable CORS for Vite Frontend
 app.add_middleware(

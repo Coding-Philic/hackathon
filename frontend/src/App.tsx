@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Service, Incident, MemoryEntry, ServiceLog, SystemHealthOverview } from './types';
 import Dashboard from './components/Dashboard';
 import ServicesMonitor from './components/ServicesMonitor';
@@ -9,8 +9,7 @@ import Analytics from './components/Analytics';
 import Settings from './components/Settings';
 import DemoControl from './components/DemoControl';
 import { 
-  Activity, Cpu, ShieldAlert, History, BrainCircuit, BarChart3, Settings as SettingsIcon, Sparkles, 
-  Layers, Terminal, Radio, ShieldCheck 
+  Activity, Cpu, ShieldAlert, History, BrainCircuit, BarChart3, Settings as SettingsIcon, Sparkles, Radio, ShieldCheck
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';

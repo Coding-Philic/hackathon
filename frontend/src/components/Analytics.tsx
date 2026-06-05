@@ -1,4 +1,3 @@
-import React from 'react';
 import { SystemHealthOverview, MemoryEntry, Incident } from '../types';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { BarChart3, TrendingUp, Zap, Clock, ThumbsUp } from 'lucide-react';
@@ -9,7 +8,7 @@ interface AnalyticsProps {
   incidents: Incident[];
 }
 
-export default function Analytics({ analytics, memories, incidents }: AnalyticsProps) {
+export default function Analytics({ analytics, memories }: AnalyticsProps) {
   
   // 1. Process Memory Growth Data
   // Sort memories chronologically and count accumulated items
@@ -35,7 +34,6 @@ export default function Analytics({ analytics, memories, incidents }: AnalyticsP
   // 3. Automation Ratio calculation
   const totalClosed = analytics.resolved_incidents;
   const autoResolutions = analytics.autonomous_resolutions;
-  const humanResolutions = totalClosed - autoResolutions;
   
   const automationRatio = totalClosed > 0 
     ? Math.round((autoResolutions / totalClosed) * 100) 
@@ -119,8 +117,8 @@ export default function Analytics({ analytics, memories, incidents }: AnalyticsP
                     <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="name" stroke="#64748b" fontSize={10} fontClassName="font-mono" />
-                <YAxis stroke="#64748b" fontSize={10} fontClassName="font-mono" allowDecimals={false} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={10} />
+                <YAxis stroke="#64748b" fontSize={10} allowDecimals={false} />
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#f8fafc', fontSize: '11px', fontFamily: 'monospace' }}
                   labelClassName="text-purple-400 font-bold"
@@ -142,12 +140,12 @@ export default function Analytics({ analytics, memories, incidents }: AnalyticsP
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={failuresData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                 <XAxis dataKey="name" stroke="#64748b" fontSize={9} />
-                <YAxis stroke="#64748b" fontSize={10} fontClassName="font-mono" allowDecimals={false} />
+                <YAxis stroke="#64748b" fontSize={10} allowDecimals={false} />
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#f8fafc', fontSize: '11px', fontFamily: 'monospace' }}
                 />
                 <Bar dataKey="count" name="Outages count" radius={[4, 4, 0, 0]}>
-                  {failuresData.map((entry, index) => (
+                  {failuresData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>

@@ -1,4 +1,3 @@
-import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Shield, Sparkles, AlertCircle, Play, Square } from 'lucide-react';
 
 interface SettingsProps {
@@ -7,29 +6,7 @@ interface SettingsProps {
   toggleAutoSim: () => void;
 }
 
-export default function Settings({ apiUrl, autoSimEnabled, toggleAutoSim }: SettingsProps) {
-  const [envStatus, setEnvStatus] = useState<{
-    llm_provider: string;
-    openai_key_loaded: boolean;
-    gemini_key_loaded: boolean;
-  } | null>(null);
-
-  useEffect(() => {
-    // We can fetch backend root to see provider configs
-    fetch(`${apiUrl}/`)
-      .then(res => res.json())
-      .then(data => {
-        // If data is fetched, let's parse env details
-        // To be safe, we can mock/estimate based on simple heuristics or direct queries
-        // Since we are mocking, we display default env loaded states
-        setEnvStatus({
-          llm_provider: data.engine || "LangGraph SRE Agent",
-          openai_key_loaded: false,
-          gemini_key_loaded: false
-        });
-      })
-      .catch(() => {});
-  }, [apiUrl]);
+export default function Settings({ autoSimEnabled, toggleAutoSim }: SettingsProps) {
 
   return (
     <div className="space-y-6 animate-fade-in text-left">

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Service, Incident, SystemHealthOverview, ServiceLog } from '../types';
 import { Activity, ShieldAlert, Zap, Cpu, Clock, History, AlertTriangle, CheckCircle, ArrowRight } from 'lucide-react';
 

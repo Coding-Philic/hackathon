@@ -1,6 +1,5 @@
-import React from 'react';
 import { Incident } from '../types';
-import { BrainCircuit, CheckCircle, ShieldAlert, Clock, Cpu } from 'lucide-react';
+import { BrainCircuit, Clock, Cpu } from 'lucide-react';
 
 interface AgentDecisionsProps {
   incidents: Incident[];

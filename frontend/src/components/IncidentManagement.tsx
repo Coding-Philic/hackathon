@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Incident } from '../types';
-import { ShieldAlert, Terminal, MessageSquare, UserCheck, ShieldCheck, HelpCircle, Loader2 } from 'lucide-react';
+import { ShieldAlert, Terminal, UserCheck, ShieldCheck, HelpCircle, Loader2 } from 'lucide-react';
 
 interface IncidentManagementProps {
   incidents: Incident[];
@@ -20,7 +20,7 @@ export default function IncidentManagement({ incidents, apiUrl, refreshIncidents
   const selectedIncident = incidents.find(i => i.id === selectedId);
 
   // Reset fields on incident change
-  React.useEffect(() => {
+  useEffect(() => {
     if (selectedIncident) {
       // Pre-fill realistic default fields for ease of demo
       if (selectedIncident.title.includes('Lab')) {
@@ -47,7 +47,7 @@ export default function IncidentManagement({ incidents, apiUrl, refreshIncidents
     }
   }, [selectedId]);
 
-  const handleResolveManual = async (e: React.FormEvent) => {
+  const handleResolveManual = async (e: FormEvent) => {
     e.preventDefault();
     if (!selectedIncident) return;
     

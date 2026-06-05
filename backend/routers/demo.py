@@ -1,4 +1,5 @@
 import datetime
+import random
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -12,6 +13,12 @@ except ImportError:
 
 router = APIRouter(prefix="/demo", tags=["Demo Controller"])
 
+
+def _pick_random_scenario():
+    """Return a random hospital incident scenario for dynamic demos."""
+    return random.choice(list(SERVICE_INCIDENT_SCENARIOS.items()))
+
+
 def trigger_agent_background(incident_id: int):
     db = next(get_db())
     try:
@@ -23,7 +30,7 @@ def trigger_agent_background(incident_id: int):
 
 @router.post("/1", response_model=schemas.IncidentInDB)
 def run_demo_1(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    """Demo 1: Memory Empty, Lab Service Stopped. Agent cannot fix it -> Escalates."""
+    """Demo 1: Fresh random outage scenario each time to avoid repeating the same incident."""
     # 1. Clear database and vector memory
     # We call our internal clear memories logic
     db.query(models.MemoryEntry).delete()
@@ -53,13 +60,14 @@ def run_demo_1(background_tasks: BackgroundTasks, db: Session = Depends(get_db))
         except Exception as e:
             print(f"Failed to clear Qdrant in Demo 1: {e}")
             
-    # 4. Inject Incident: Lab Reports Not Generating
+    # 4. Pick a fresh random scenario so Demo 1 produces a different incident on every run.
+    service_name, scenario = _pick_random_scenario()
     db_incident = simulator.inject_incident(
         db=db,
-        title="Lab Reports Not Generating",
-        symptoms="Doctors cannot access laboratory reports. File output directory reports 0 records written.",
-        affected_services="Lab Service",
-        severity="High"
+        title=scenario["title"],
+        symptoms=scenario["symptoms"],
+        affected_services=service_name,
+        severity=scenario["severity"]
     )
     
     # 5. Run agent loop in background
@@ -67,39 +75,142 @@ def run_demo_1(background_tasks: BackgroundTasks, db: Session = Depends(get_db))
     
     return db_incident
 
-@router.post("/2", response_model=schemas.IncidentInDB)
+# ---------------------------------------------------------------------------
+# Dynamic scenario mapping — one entry per hospital service
+# When Demo 2 detects a service is down, it looks up the matching incident here
+# ---------------------------------------------------------------------------
+SERVICE_INCIDENT_SCENARIOS = {
+    "Lab Service": {
+        "title": "Lab Reports Not Generating",
+        "symptoms": "Doctors cannot access laboratory reports. Lab queue worker is unresponsive. File output directory reports 0 records written.",
+        "severity": "High",
+        "root_cause": "A file descriptor leak in the report generation queue caused the service worker to freeze.",
+        "resolution": "Restart the Lab Service to flush file handles and clean the cache directory.",
+        "action_type": "Restart Service",
+    },
+    "Authentication Service": {
+        "title": "User Login Failures",
+        "symptoms": "Nurses and doctors cannot authenticate. JWT token validation returning Error 500. Session creation rejected.",
+        "severity": "High",
+        "root_cause": "Session token synchronization buffer overflowed due to high traffic volume, locking login threads.",
+        "resolution": "Reset session controller memory cache and clear Authentication session logs.",
+        "action_type": "Reset Authentication",
+    },
+    "Billing Service": {
+        "title": "Billing Transactions Failing",
+        "symptoms": "Payments locked in invoice queue. Database returns transaction lock timeout. Active invoices stuck in Pending state.",
+        "severity": "High",
+        "root_cause": "Database lock contention on active invoices table halted the processing thread pool.",
+        "resolution": "Clear active transaction queues and re-establish Database Service connection pool.",
+        "action_type": "Reconnect Database",
+    },
+    "Pharmacy Service": {
+        "title": "Pharmacy Inventory Sync Failed",
+        "symptoms": "Pharmacy inventory synchronization API returned recurring timeouts. Prescription database not synced with local supplier inventory.",
+        "severity": "High",
+        "root_cause": "Vendor inventory synchronization API returned recurring timeouts, causing backoff loop starvation.",
+        "resolution": "Recover Pharmacy Service backoff queue and switch to backup inventory caching server.",
+        "action_type": "Enable Backup Service",
+    },
+    "Database Service": {
+        "title": "Database Connection Refused",
+        "symptoms": "Telemetry detects database socket refusal. Port 5432 is unresponsive. All dependent services report connection failures.",
+        "severity": "Critical",
+        "root_cause": "Database connection pool saturated by unindexed query spikes on medical chart tables.",
+        "resolution": "Flush connection pool, clear active queries, and recycle Database Service container.",
+        "action_type": "Reconnect Database",
+    },
+    "API Gateway": {
+        "title": "API Gateway Timeout",
+        "symptoms": "Internal API calls return Gateway Timeout. Gateway routing table is corrupted. Microservice mesh unreachable.",
+        "severity": "Medium",
+        "root_cause": "API Gateway routing table got desynchronized during an internal network socket flap.",
+        "resolution": "Reload API Gateway configuration routing maps and run service status check.",
+        "action_type": "Restart Service",
+    },
+}
+
+@router.post("/2")
 def run_demo_2(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    """Demo 2: Same Outage, Agent retrieves memory, executes autonomous restart."""
-    # 1. Make sure Lab Service is Running or Stopped. We'll set it to Stopped.
-    simulator.stop_service(db, "Lab Service")
-    
-    # 2. Seed memory entry if not exists (in case user skipped Demo 1 manual resolution)
-    existing_mem = db.query(models.MemoryEntry).filter_by(title="Lab Reports Not Generating").first()
-    if not existing_mem:
-        memory.store_memory(
+    """
+    Demo 2: FULLY DYNAMIC autonomous agent dispatch.
+    - Scans ALL currently stopped or degraded services
+    - Creates a tailored incident for each broken service
+    - Seeds memory for any service not previously seen (so agent can act autonomously)
+    - Runs the SRE agent on every incident in parallel background tasks
+    - If nothing is broken: falls back to stopping a random service as a demo target
+    """
+    # Step 1: Reset the service board so Demo 2 always starts from a clean, healthy state.
+    all_services = db.query(models.Service).all()
+    if not all_services:
+        simulator.init_services(db)
+        all_services = db.query(models.Service).all()
+
+    for svc in all_services:
+        simulator.recover_service(db, svc.service_name)
+
+    db.commit()
+
+    # Step 2: Force a fresh random outage target for this run, instead of reusing an old broken service.
+    target = random.choice(all_services) if all_services else None
+    troubled = []
+    if target:
+        simulator.stop_service(db, target.service_name)
+        troubled = [db.query(models.Service).filter_by(service_name=target.service_name).first()]
+
+    created_incidents = []
+
+    for svc in troubled:
+        name = svc.service_name
+
+        # Look up the scenario for this specific service
+        scenario = SERVICE_INCIDENT_SCENARIOS.get(name, {
+            "title": f"{name} Service Failure Detected",
+            "symptoms": f"{name} is unresponsive. Telemetry shows repeated health check failures and connection refused errors.",
+            "severity": "High",
+            "root_cause": f"Unknown failure in {name}. Service process has exited unexpectedly.",
+            "resolution": f"Restart {name} and verify all downstream dependencies are healthy.",
+            "action_type": "Restart Service",
+        })
+
+        # Step 3: Seed memory for this service if it has never been resolved before
+        # This means the agent can act autonomously for ANY stopped service
+        existing_mem = db.query(models.MemoryEntry).filter_by(title=scenario["title"]).first()
+        if not existing_mem:
+            memory.store_memory(
+                db=db,
+                title=scenario["title"],
+                symptoms=scenario["symptoms"],
+                affected_services=name,
+                root_cause=scenario["root_cause"],
+                resolution=scenario["resolution"],
+                actions_executed=[scenario["action_type"]],
+                success_rate=1.0
+            )
+
+        # Step 4: Create a live incident for this service
+        db_incident = simulator.inject_incident(
             db=db,
-            title="Lab Reports Not Generating",
-            symptoms="Doctors cannot access laboratory reports. File output directory reports 0 records written.",
-            affected_services="Lab Service",
-            root_cause="A file descriptor leak in the report generation queue caused the service worker to freeze.",
-            resolution="Restart the Lab Service to flush file handles and clean the cache directory.",
-            actions_executed=["Restart Service"],
-            success_rate=1.0
+            title=scenario["title"],
+            symptoms=scenario["symptoms"],
+            affected_services=name,
+            severity=scenario["severity"]
         )
-        
-    # 3. Inject same Incident again
-    db_incident = simulator.inject_incident(
-        db=db,
-        title="Lab Reports Not Generating",
-        symptoms="Doctors cannot access laboratory reports. File output directory reports 0 records written.",
-        affected_services="Lab Service",
-        severity="High"
-    )
-    
-    # 4. Run SRE Agent asynchronously
-    background_tasks.add_task(trigger_agent_background, db_incident.id)
-    
-    return db_incident
+        created_incidents.append(db_incident)
+
+        # Step 5: Run the SRE agent on each incident in a background thread
+        background_tasks.add_task(trigger_agent_background, db_incident.id)
+
+    return {
+        "incidents_triggered": len(created_incidents),
+        "services_affected": [s.service_name for s in troubled],
+        "primary_incident_id": created_incidents[0].id if created_incidents else None,
+        "message": (
+            f"Agent dispatched for {len(created_incidents)} service(s): "
+            + ", ".join(s.service_name for s in troubled)
+        )
+    }
+
 
 @router.post("/3")
 def run_demo_3(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):

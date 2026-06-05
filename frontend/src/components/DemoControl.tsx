@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Play, RotateCcw, ShieldAlert, Sparkles, Database, CheckCircle, ArrowRight } from 'lucide-react';
 
 interface DemoControlProps {
@@ -18,31 +18,41 @@ export default function DemoControl({ apiUrl, refreshAllData, setActiveTab }: De
     try {
       const response = await fetch(`${apiUrl}/api/demo/${demoNum}`, { method: 'POST' });
       if (!response.ok) throw new Error(`Demo ${demoNum} failed to start.`);
-      
+
       const data = await response.json();
-      setMessage({
-        type: 'success',
-        text: demoNum === 3 
-          ? "Demo 3 dataset populated successfully. Check Analytics & Timeline!" 
-          : `Demo ${demoNum} triggered! Active Incident ID: #${data.id || 'N/A'}.`
-      });
-      
+
+      let successText = '';
+      if (demoNum === 1) {
+        successText = `Demo 1 triggered! Cold-start outage created. Incident ID: #${data.id || 'N/A'}. Agent will escalate (no memory exists).`;
+      } else if (demoNum === 2) {
+        const services: string[] = data.services_affected || [];
+        const count = data.incidents_triggered ?? 1;
+        successText = services.length > 0
+          ? `Agent dispatched for ${count} service(s): ${services.join(', ')}. Watch the incidents resolve autonomously!`
+          : `Demo 2 triggered! Incident ID: #${data.primary_incident_id || 'N/A'}`;
+      } else {
+        successText = 'Demo 3 dataset populated successfully. Check Analytics & Timeline!';
+      }
+
+      setMessage({ type: 'success', text: successText });
+
       refreshAllData();
-      
+
       // Guide navigation
       if (demoNum === 1 || demoNum === 2) {
         setTimeout(() => setActiveTab('incidents'), 1500);
       } else if (demoNum === 3) {
         setTimeout(() => setActiveTab('analytics'), 1500);
       }
-      
+
       setActiveStep(demoNum === 1 ? 2 : demoNum === 2 ? 3 : 1);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || "An error occurred." });
+      setMessage({ type: 'error', text: err.message || 'An error occurred.' });
     } finally {
       setLoading(null);
     }
   };
+
 
   const resetSystem = async () => {
     setLoading('reset');
@@ -83,11 +93,10 @@ export default function DemoControl({ apiUrl, refreshAllData, setActiveTab }: De
       </div>
 
       {message && (
-        <div className={`p-4 rounded-md border text-sm flex items-center gap-3 ${
-          message.type === 'success' 
-            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-            : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-        }`}>
+        <div className={`p-4 rounded-md border text-sm flex items-center gap-3 ${message.type === 'success'
+          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+          : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+          }`}>
           <CheckCircle className="h-5 w-5 shrink-0" />
           <span>{message.text}</span>
         </div>
@@ -95,11 +104,10 @@ export default function DemoControl({ apiUrl, refreshAllData, setActiveTab }: De
 
       {/* Demo Cards Carousel/Steps */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
+
         {/* DEMO 1 */}
-        <div className={`glass-card p-6 rounded-lg flex flex-col justify-between relative ${
-          activeStep === 1 ? 'border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'opacity-70'
-        }`}>
+        <div className={`glass-card p-6 rounded-lg flex flex-col justify-between relative ${activeStep === 1 ? 'border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'opacity-70'
+          }`}>
           {activeStep === 1 && (
             <span className="absolute -top-3 left-4 bg-cyan-500 text-dark-900 font-bold px-2 py-0.5 rounded text-xs uppercase tracking-wider">
               Active Step
@@ -111,11 +119,11 @@ export default function DemoControl({ apiUrl, refreshAllData, setActiveTab }: De
               <Database className="text-cyan-400 h-5 w-5" />
               Demo 1: Cold Start Outage
             </h3>
-            
+
             <p className="text-slate-300 text-xs mt-3 leading-relaxed">
               Resets the database, wipes Qdrant memory, and stops the <strong>Lab Service</strong>.
             </p>
-            
+
             <div className="bg-slate-950/40 p-3 rounded border border-slate-800/80 mt-4 space-y-2 text-[11px] font-mono text-slate-400">
               <div className="flex items-center gap-1.5 text-cyan-400">
                 <ShieldAlert className="h-3 w-3" /> Expected Behavior:
@@ -126,7 +134,7 @@ export default function DemoControl({ apiUrl, refreshAllData, setActiveTab }: De
               <p>4. Engineer resolves it in UI &gt; stores resolution in Qdrant.</p>
             </div>
           </div>
-          
+
           <button
             onClick={() => runDemo(1)}
             disabled={loading !== null}
@@ -138,9 +146,8 @@ export default function DemoControl({ apiUrl, refreshAllData, setActiveTab }: De
         </div>
 
         {/* DEMO 2 */}
-        <div className={`glass-card p-6 rounded-lg flex flex-col justify-between relative ${
-          activeStep === 2 ? 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'opacity-70'
-        }`}>
+        <div className={`glass-card p-6 rounded-lg flex flex-col justify-between relative ${activeStep === 2 ? 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'opacity-70'
+          }`}>
           {activeStep === 2 && (
             <span className="absolute -top-3 left-4 bg-emerald-500 text-dark-900 font-bold px-2 py-0.5 rounded text-xs uppercase tracking-wider">
               Active Step
@@ -152,11 +159,11 @@ export default function DemoControl({ apiUrl, refreshAllData, setActiveTab }: De
               <Sparkles className="text-emerald-400 h-5 w-5" />
               Demo 2: Autonomous Recall
             </h3>
-            
+
             <p className="text-slate-300 text-xs mt-3 leading-relaxed">
               Triggers the same <strong>Lab Service</strong> outage. The SRE agent searches Qdrant, matches the previous incident, and recovers the service.
             </p>
-            
+
             <div className="bg-slate-950/40 p-3 rounded border border-slate-800/80 mt-4 space-y-2 text-[11px] font-mono text-slate-400">
               <div className="flex items-center gap-1.5 text-emerald-400">
                 <CheckCircle className="h-3 w-3" /> Expected Behavior:
@@ -167,7 +174,7 @@ export default function DemoControl({ apiUrl, refreshAllData, setActiveTab }: De
               <p>4. Health verifies to 100% &gt; incident closes automatically.</p>
             </div>
           </div>
-          
+
           <button
             onClick={() => runDemo(2)}
             disabled={loading !== null}
@@ -179,9 +186,8 @@ export default function DemoControl({ apiUrl, refreshAllData, setActiveTab }: De
         </div>
 
         {/* DEMO 3 */}
-        <div className={`glass-card p-6 rounded-lg flex flex-col justify-between relative ${
-          activeStep === 3 ? 'border-purple-500/50 shadow-[0_0_15px_rgba(139,92,246,0.1)]' : 'opacity-70'
-        }`}>
+        <div className={`glass-card p-6 rounded-lg flex flex-col justify-between relative ${activeStep === 3 ? 'border-purple-500/50 shadow-[0_0_15px_rgba(139,92,246,0.1)]' : 'opacity-70'
+          }`}>
           {activeStep === 3 && (
             <span className="absolute -top-3 left-4 bg-purple-500 text-dark-900 font-bold px-2 py-0.5 rounded text-xs uppercase tracking-wider">
               Active Step
@@ -193,11 +199,11 @@ export default function DemoControl({ apiUrl, refreshAllData, setActiveTab }: De
               <ArrowRight className="text-purple-400 h-5 w-5" />
               Demo 3: Memory Scale
             </h3>
-            
+
             <p className="text-slate-300 text-xs mt-3 leading-relaxed">
               Populates the database with multiple past memories (Auth, DB, Billing failures), logs, and triggers a live <strong>Pharmacy Service</strong> failure.
             </p>
-            
+
             <div className="bg-slate-950/40 p-3 rounded border border-slate-800/80 mt-4 space-y-2 text-[11px] font-mono text-slate-400">
               <div className="flex items-center gap-1.5 text-purple-400">
                 <Database className="h-3 w-3" /> Expected Behavior:
@@ -208,7 +214,7 @@ export default function DemoControl({ apiUrl, refreshAllData, setActiveTab }: De
               <p>4. Displays SRE Agent Success Rates and MTTR drops.</p>
             </div>
           </div>
-          
+
           <button
             onClick={() => runDemo(3)}
             disabled={loading !== null}

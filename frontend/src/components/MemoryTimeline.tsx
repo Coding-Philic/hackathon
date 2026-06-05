@@ -1,6 +1,5 @@
-import React from 'react';
 import { MemoryEntry } from '../types';
-import { History, Cpu, Database, Award, ShieldAlert, GitCommit } from 'lucide-react';
+import { History, Cpu, Database, Award, GitCommit } from 'lucide-react';
 
 interface MemoryTimelineProps {
   memories: MemoryEntry[];

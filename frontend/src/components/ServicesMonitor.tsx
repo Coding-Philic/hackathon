@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Service } from '../types';
-import { Cpu, Play, Square, RefreshCw, AlertTriangle, CheckCircle, Sliders } from 'lucide-react';
+import { Cpu, Play, Square, RefreshCw, CheckCircle, Sliders } from 'lucide-react';
 
 interface ServicesMonitorProps {
   services: Service[];
